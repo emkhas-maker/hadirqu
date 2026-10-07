@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Presensi GTK MI Sultan Agung</title>
+<meta name="theme-color" content="#124028">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+:root{--g1:#124028;--g2:#1a5938;--gold:#f1c40f}
+body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Verdana,sans-serif}
+.hdr{background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff;padding:18px 0;border-bottom:4px solid var(--gold)}
+.card-c{border:0;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.btn-green{background:var(--g1);color:#fff}.btn-green:hover{background:var(--g2);color:#fff}
+.tok{font-family:monospace;font-size:.8rem;background:#e9ecef;padding:2px 6px;border-radius:4px;word-break:break-all}
+#printArea{background:#fff}
+@media print{
+  @page{size:A4;margin:15mm}
+  body{background:#fff}.no-print{display:none!important}
+  #printArea{padding:0!important}thead{display:table-header-group}tr{break-inside:avoid}
+  .table-light th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="hdr text-center no-print"><div class="container">
+  <h4 class="fw-bold mb-1">MI SULTAN AGUNG DEPOK</h4>
+  <p class="mb-0 small">Sistem Presensi GTK · Geofence GPS &amp; Device Binding</p>
+</div></div>
+
+<div class="container my-4">
+<!-- LOGIN -->
+<div id="loginSec" class="row justify-content-center no-print"><div class="col-md-5"><div class="card card-c p-4">
+  <form id="loginForm">
+    <div class="text-center mb-3"><h5 class="fw-bold">Masuk</h5><p class="text-muted small mb-0">Masukkan PIN Anda</p></div>
+    <input type="password" id="pin" class="form-control form-control-lg text-center fw-bold mb-3" inputmode="numeric" maxlength="8" placeholder="PIN" autocomplete="off" required>
+    <button type="submit" id="btnLogin" class="btn btn-green w-100 btn-lg fw-bold">Masuk</button>
+  </form>
+  <div class="mt-3 pt-3 border-top text-center">
+    <div class="small text-muted mb-1">Token perangkat ini</div><span id="devTok" class="tok">-</span>
+    <button id="btnInstall" class="btn btn-outline-success w-100 mt-3 d-none">Instal aplikasi di HP ini</button>
+    <div id="iosHint" class="small text-muted mt-3 d-none">iPhone: ketuk Bagikan, lalu Tambah ke Layar Utama.</div>
+  </div>
+</div></div></div>
+
+<!-- PEGAWAI -->
+<div id="pegSec" class="d-none no-print">
+  <div class="card card-c p-3 mb-3 d-flex flex-row justify-content-between align-items-center">
+    <div><h5 class="fw-bold mb-0" id="uNama">-</h5><span class="badge bg-success" id="uJab">-</span> <span class="small text-muted" id="uNip"></span></div>
+    <button class="btn btn-outline-danger btn-sm" onclick="logout()">Keluar</button>
+  </div>
+  <div class="row justify-content-center"><div class="col-md-8"><div class="card card-c p-4 text-center">
+    <h2 class="fw-bold text-success mb-0" id="clock">00:00:00</h2><p class="small text-muted" id="dateD"></p><hr>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="p-3 border rounded bg-light"><h6 class="fw-bold">Presensi Masuk</h6>
+        <p id="stMasuk" class="small text-muted mb-2">Belum presensi</p>
+        <button id="btnMasuk" class="btn btn-success w-100 fw-bold" onclick="doPresensi('Masuk')">Presensi Masuk</button></div></div>
+      <div class="col-md-6"><div class="p-3 border rounded bg-light"><h6 class="fw-bold">Presensi Pulang</h6>
+        <p id="stPulang" class="small text-muted mb-2">Belum presensi</p>
+        <button id="btnPulang" class="btn btn-danger w-100 fw-bold" onclick="doPresensi('Pulang')">Presensi Pulang</button></div></div>
+    </div>
+    <div class="alert alert-info mt-3 mb-0 small text-start">Presensi terikat pada HP ini. Pastikan Anda berada di sekolah dan GPS aktif.</div>
+  </div></div></div>
+</div>
+
+<!-- ADMIN -->
+<div id="adminSec" class="d-none">
+  <div class="card card-c p-3 mb-3 d-flex flex-row justify-content-between align-items-center no-print">
+    <div><h5 class="fw-bold mb-0">Panel Administrator</h5><span class="text-muted small">Monitoring, input manual, token perangkat, audit, laporan</span></div>
+    <button class="btn btn-outline-danger btn-sm" onclick="logout()">Keluar</button>
+  </div>
+  <ul class="nav nav-pills mb-3 no-print flex-wrap" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tHari">Hari Ini</button></li>
+    <li class="nav-item"><button class="nav-link" id="tabManualBtn" data-bs-toggle="pill" data-bs-target="#tManual">Input Manual</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tPeg">Pegawai &amp; Token</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tAudit">Audit Log</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tSet">Pengaturan</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tCetak">Cetak Laporan</button></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="tHari">
+      <div class="d-flex justify-content-between align-items-center mb-2 no-print">
+        <span class="small text-muted" id="lastUpd"></span><button class="btn btn-sm btn-outline-success" onclick="loadAdmin()">Muat ulang</button></div>
+      <div class="row row-cols-2 row-cols-md-5 g-2 mb-3" id="cards"></div>
+      <div class="row g-3">
+        <div class="col-lg-5"><div class="card card-c p-3"><h6 class="fw-bold">Belum presensi hari ini</h6><ul class="list-group list-group-flush" id="belumList"></ul></div></div>
+        <div class="col-lg-7"><div class="card card-c p-3"><h6 class="fw-bold">Presensi hari ini</h6><div class="table-responsive">
+          <table class="table table-sm table-striped align-middle small"><thead class="table-dark"><tr><th>Jam</th><th>Pegawai</th><th>Tipe</th><th>Jarak</th><th>Status</th></tr></thead><tbody id="tHariBody"></tbody></table></div></div></div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="tManual"><div class="card card-c p-4"><h6 class="fw-bold mb-3">Input presensi manual (HP tertinggal / kendala perangkat)</h6><div class="row g-3">
+      <div class="col-md-6"><label class="form-label">Pegawai</label><select id="mPeg" class="form-select"></select></div>
+      <div class="col-md-3"><label class="form-label">Tanggal</label><input type="date" id="mTgl" class="form-control"></div>
+      <div class="col-md-3"><label class="form-label">Jam</label><input type="time" id="mJam" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label">Tipe</label><select id="mTipe" class="form-select"><option>Masuk</option><option>Pulang</option></select></div>
+      <div class="col-md-4"><label class="form-label">Status</label><select id="mStatus" class="form-select"><option value="Hadir">Hadir tepat waktu</option><option>Terlambat</option><option>Izin</option><option>Sakit</option></select></div>
+      <div class="col-md-4"><label class="form-label">Keterangan</label><input id="mKet" class="form-control" placeholder="Contoh: HP tertinggal di rumah"></div>
+      <div class="col-12 text-end"><button class="btn btn-primary fw-bold" onclick="saveManual()">Simpan presensi manual</button></div></div></div></div>
+    <div class="tab-pane fade" id="tPeg"><div class="card card-c p-3"><h6 class="fw-bold">Daftar pegawai &amp; token perangkat</h6><div class="table-responsive">
+      <table class="table table-bordered align-middle small"><thead class="table-secondary"><tr><th>ID</th><th>Nama</th><th>NIP</th><th>Jabatan</th><th>Token terdaftar</th><th>Aksi</th></tr></thead><tbody id="tPegBody"></tbody></table></div></div></div>
+    <div class="tab-pane fade" id="tAudit"><div class="card card-c p-3"><h6 class="fw-bold">50 aktivitas terakhir</h6><div class="table-responsive">
+      <table class="table table-sm table-hover small"><thead class="table-dark"><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Keterangan</th></tr></thead><tbody id="tAuditBody"></tbody></table></div></div></div>
+    <div class="tab-pane fade" id="tSet"><div class="card card-c p-4"><h6 class="fw-bold mb-3">Lokasi sekolah &amp; jam kerja</h6><div class="row g-3">
+      <div class="col-md-4"><label class="form-label">Latitude</label><input id="cLat" class="form-control" inputmode="decimal"></div>
+      <div class="col-md-4"><label class="form-label">Longitude</label><input id="cLon" class="form-control" inputmode="decimal"></div>
+      <div class="col-md-4"><label class="form-label">Radius (meter)</label><input id="cRad" type="number" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label">Jam masuk (HH:mm)</label><input id="cMasuk" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label">Batas terlambat (HH:mm)</label><input id="cTelat" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label">Jam pulang (HH:mm)</label><input id="cPulang" class="form-control"></div>
+      <div class="col-12 text-end"><button class="btn btn-success fw-bold" onclick="saveSet()">Simpan pengaturan</button></div></div></div></div>
+    <div class="tab-pane fade" id="tCetak">
+      <div class="card card-c p-4 mb-3 no-print"><h6 class="fw-bold mb-3">Filter laporan</h6><div class="row g-3">
+        <div class="col-md-3"><label class="form-label">Dari</label><input type="date" id="rStart" class="form-control"></div>
+        <div class="col-md-3"><label class="form-label">Sampai</label><input type="date" id="rEnd" class="form-control"></div>
+        <div class="col-md-4"><label class="form-label">Pegawai</label><select id="rPeg" class="form-select"><option value="semua">Semua pegawai</option></select></div>
+        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100 fw-bold" onclick="genReport()">Tampilkan</button></div></div></div>
+      <div id="printArea" class="p-4 rounded d-none">
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-3 border-dark">
+          <div style="width:80px" class="text-center"><img id="logoImg" src="logo.png" alt="Logo" style="max-height:80px;max-width:80px;object-fit:contain" onerror="this.style.visibility='hidden'"></div>
+          <div class="text-center flex-grow-1 px-3">
+            <h4 class="fw-bold mb-0" style="font-family:'Times New Roman',serif">MADRASAH IBTIDAIYAH SULTAN AGUNG</h4>
+            <p class="mb-0 small fw-bold">NSM: 111234040009 | NPSN: 60714115</p>
+            <p class="mb-0 small">Jl. Kaliurang km 7, Condongcatur, Depok, Sleman, DI Yogyakarta 55283</p></div>
+          <div style="width:80px"></div></div>
+        <h6 class="fw-bold text-decoration-underline text-center mb-3">LAPORAN REKAPITULASI PRESENSI GTK</h6>
+        <table class="table table-bordered align-middle small mb-4"><thead class="table-light"><tr><th>No</th><th>Tanggal</th><th>Jam</th><th>Nama Pegawai</th><th>Tipe</th><th>Status</th><th>Keterangan</th></tr></thead><tbody id="rBody"></tbody></table>
+        <div class="row mt-5"><div class="col-6"></div><div class="col-6 text-center">
+          <p class="mb-1">Sleman, <span id="rDate"></span></p><p class="mb-5">Kepala MI Sultan Agung</p>
+          <p class="fw-bold text-decoration-underline mb-0">Binti Khoiriyah, M.Pd</p><p class="small">NIP. -</p></div></div>
+      </div>
+      <div class="text-end mt-2 d-none no-print" id="btnPrintWrap"><button class="btn btn-dark btn-lg" onclick="cetak()">Cetak / Simpan PDF (A4)</button></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ====== GANTI dengan URL Web App Apps Script (berakhiran /exec) ======
+const API = 'https://script.google.com/macros/s/AKfycbzXL2F7nZoutJU4uyW4V_Esg_Skf6p5xlF8uly0MxP7BFGY9dj1PtIJkyMsIW82gkft/exec';
+
+let S = null; // {token, user}
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function deviceToken() {
+  try {
+    let t = localStorage.getItem('GTK_DEVICE_TOKEN');
+    if (!t) { t = crypto.randomUUID(); localStorage.setItem('GTK_DEVICE_TOKEN', t); }
+    return t;
+  } catch (e) { return null; }
+}
+
+// JSONP
+function api(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb' + Date.now() + Math.floor(Math.random() * 1e6), s = document.createElement('script');
+    const done = () => { clearTimeout(timer); delete window[cb]; s.remove(); };
+    const timer = setTimeout(() => { done(); reject(new Error('Server tidak merespons. Periksa koneksi.')); }, 25000);
+    window[cb] = d => { done(); resolve(d); };
+    s.onerror = () => { done(); reject(new Error('Gagal terhubung ke server.')); };
+    s.src = API + '?' + new URLSearchParams({ action, callback: cb, ...(S ? { token: S.token } : {}), ...params });
+    document.head.appendChild(s);
+  });
+}
+async function call(action, params) {
+  const r = await api(action, params);
+  if (!r.success && r.message === 'SESI_HABIS') { logout(); alert('Sesi berakhir, silakan login ulang.'); throw new Error('SESI_HABIS'); }
+  return r;
+}
+const safe = fn => async (...a) => { try { return await fn(...a); } catch (e) { if (e.message !== 'SESI_HABIS') alert(e.message); } };
+
+// ====== LOGIN / LOGOUT ======
+$('devTok').textContent = deviceToken() || 'tidak tersedia';
+$('loginForm').addEventListener('submit', safe(async e => {
+  e.preventDefault();
+  const dev = deviceToken();
+  if (!dev) return alert('Penyimpanan browser dinonaktifkan, token perangkat tidak bisa dibuat.');
+  const b = $('btnLogin'); b.disabled = true; b.textContent = 'Memproses...';
+  try {
+    const r = await api('login', { pin: $('pin').value.trim(), device: dev });
+    if (!r.success) return alert(r.message);
+    S = { token: r.token, user: r.user };
+    $('loginSec').classList.add('d-none');
+    if (r.user.role === 'admin') { $('adminSec').classList.remove('d-none'); await loadAdmin(); }
+    else {
+      $('uNama').textContent = r.user.nama; $('uJab').textContent = r.user.jabatan; $('uNip').textContent = 'NIP: ' + r.user.nip;
+      $('pegSec').classList.remove('d-none'); setStatus(r.status);
+    }
+  } finally { b.disabled = false; b.textContent = 'Masuk'; }
+}));
+function logout() {
+  S = null; $('pin').value = '';
+  ['pegSec', 'adminSec'].forEach(i => $(i).classList.add('d-none'));
+  $('loginSec').classList.remove('d-none');
+}
+
+// ====== PEGAWAI ======
+setInterval(() => {
+  $('clock').textContent = new Date().toLocaleTimeString('id-ID', { hour12: false });
+  $('dateD').textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}, 1000);
+function setStatus(st) {
+  [['masuk', 'Masuk'], ['pulang', 'Pulang']].forEach(([k, n]) => {
+    const o = st && st[k];
+    $('st' + n).innerHTML = o ? `<span class="badge bg-success">Sudah: ${esc(o.jam)} (${esc(o.status)})</span>` : 'Belum presensi';
+    $('btn' + n).disabled = !!o;
+  });
+}
+const doPresensi = tipe => {
+  if (!navigator.geolocation) return alert('Browser tidak mendukung Geolocation.');
+  const b = $('btn' + tipe), label = b.textContent; b.disabled = true; b.textContent = 'Memproses...';
+  navigator.geolocation.getCurrentPosition(safe(async pos => {
+    try {
+      const r = await call('presensi', { tipe, lat: pos.coords.latitude, long: pos.coords.longitude, acc: pos.coords.accuracy });
+      alert(r.message); if (r.success) setStatus(r.status);
+    } finally { b.textContent = label; if (S) b.disabled = false; }
+  }), err => { alert('Gagal mendapatkan lokasi GPS: ' + err.message); b.disabled = false; b.textContent = label; },
+  { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+};
+
+// ====== ADMIN ======
+const loadAdmin = safe(async () => {
+  const r = await call('dashboard'); if (!r.success) return alert(r.message);
+  const m = r.ringkasan;
+  $('cards').innerHTML = [['Pegawai aktif', m.total, 'secondary'], ['Sudah masuk', m.sudah, 'success'], ['Terlambat', m.telat, 'warning'], ['Izin / Sakit', m.izin, 'info'], ['Belum presensi', m.belum, 'danger']]
+    .map(([l, v, c]) => `<div class="col"><div class="card card-c p-3 text-center border-top border-4 border-${c}"><div class="fs-2 fw-bold">${v}</div><div class="small text-muted">${l}</div></div></div>`).join('');
+  $('belumList').innerHTML = r.belum.length
+    ? r.belum.map(p => `<li class="list-group-item d-flex justify-content-between align-items-center gap-2"><span>${esc(p.nama)}<br><span class="text-muted small">${esc(p.jabatan)}</span></span><button class="btn btn-sm btn-outline-primary btn-manual no-print" data-nama="${esc(p.nama)}">Input manual</button></li>`).join('')
+    : '<li class="list-group-item text-success">Semua pegawai sudah presensi.</li>';
+  $('tHariBody').innerHTML = r.hari.map(x => `<tr><td>${esc(x[2])}</td><td>${esc(x[3])}</td><td><span class="badge ${x[4] === 'Masuk' ? 'bg-success' : 'bg-danger'}">${esc(x[4])}</span></td><td>${esc(x[8])}${x[8] === '-' ? '' : ' m'}</td><td>${esc(x[9])}</td></tr>`).join('')
+    || '<tr><td colspan="5" class="text-center text-muted">Belum ada presensi hari ini</td></tr>';
+  const aktif = r.peg.filter(p => String(p[1]).trim());
+  const opt = aktif.map(p => `<option value="${esc(p[1])}">${esc(p[1])}</option>`).join('');
+  const keep = [$('mPeg').value, $('rPeg').value];
+  $('mPeg').innerHTML = opt; $('rPeg').innerHTML = '<option value="semua">Semua pegawai</option>' + opt;
+  if (keep[0]) $('mPeg').value = keep[0]; if (keep[1]) $('rPeg').value = keep[1];
+  $('tPegBody').innerHTML = aktif.map(p => `<tr><td>${esc(p[0])}</td><td><strong>${esc(p[1])}</strong></td><td>${esc(p[2])}</td><td>${esc(p[3])}</td><td>${p[7] ? `<span class="tok">${esc(p[7])}</span>` : '<span class="badge bg-warning text-dark">Belum terdaftar</span>'}</td><td><button class="btn btn-warning btn-sm fw-bold btn-reset" data-id="${esc(p[0])}" data-nama="${esc(p[1])}">Reset token</button></td></tr>`).join('');
+  $('tAuditBody').innerHTML = r.audit.map(a => `<tr><td>${esc(a[0])}</td><td><strong>${esc(a[1])}</strong></td><td><span class="badge bg-secondary">${esc(a[2])}</span></td><td>${esc(a[3])}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="text-center text-muted">Belum ada log</td></tr>';
+  const s = r.settings;
+  $('cLat').value = s['Latitude'] || ''; $('cLon').value = s['Longitude'] || ''; $('cRad').value = s['Radius'] || '';
+  $('cMasuk').value = s['Jam Masuk'] || ''; $('cTelat').value = s['Batas Terlambat'] || ''; $('cPulang').value = s['Jam Pulang'] || '';
+  const n = new Date();
+  if (!$('mTgl').value) $('mTgl').value = n.toLocaleDateString('sv-SE'); // tanggal lokal, bukan UTC
+  if (!$('mJam').value) $('mJam').value = n.toTimeString().slice(0, 5);
+  $('lastUpd').textContent = 'Diperbarui ' + n.toLocaleTimeString('id-ID', { hour12: false });
+});
+setInterval(() => { if (S && S.user.role === 'admin' && !document.hidden && $('tHari').classList.contains('active')) loadAdmin(); }, 60000);
+
+document.addEventListener('click', safe(async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.classList.contains('btn-manual')) {
+    $('mPeg').value = b.dataset.nama; bootstrap.Tab.getOrCreateInstance($('tabManualBtn')).show();
+  } else if (b.classList.contains('btn-reset')) {
+    if (!confirm(`Reset token perangkat ${b.dataset.nama}? Pegawai dapat mendaftarkan HP barunya saat login.`)) return;
+    const r = await call('reset', { id: b.dataset.id }); alert(r.message); if (r.success) loadAdmin();
+  }
+}));
+
+const saveManual = safe(async () => {
+  const r = await call('manual', { nama: $('mPeg').value, tanggal: $('mTgl').value, jam: $('mJam').value, tipe: $('mTipe').value, status: $('mStatus').value, ket: $('mKet').value });
+  alert(r.message); if (r.success) { $('mKet').value = ''; loadAdmin(); }
+});
+const saveSet = safe(async () => {
+  const r = await call('settings', { lat: $('cLat').value, lon: $('cLon').value, radius: $('cRad').value, masuk: $('cMasuk').value, telat: $('cTelat').value, pulang: $('cPulang').value });
+  alert(r.message); if (r.success) loadAdmin();
+});
+const genReport = safe(async () => {
+  const r = await call('laporan', { start: $('rStart').value, end: $('rEnd').value, nama: $('rPeg').value });
+  if (!r.success) return alert(r.message);
+  $('rBody').innerHTML = r.data.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x[0])}</td><td>${esc(x[1])}</td><td>${esc(x[2])}</td><td>${esc(x[3])}</td><td>${esc(x[4])}</td><td>${esc(x[6] || (x[5] !== '-' ? 'Jarak: ' + x[5] + ' m' : ''))}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="text-center">Tidak ada data presensi</td></tr>';
+  $('rDate').textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  $('printArea').classList.remove('d-none'); $('btnPrintWrap').classList.remove('d-none');
+});
+function cetak() { // tunggu logo selesai dimuat agar ikut tercetak
+  const img = $('logoImg');
+  if (img.complete) window.print(); else { img.onload = img.onerror = () => window.print(); }
+}
+
+// ====== PWA ======
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+let deferred;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('btnInstall').classList.remove('d-none'); });
+$('btnInstall').onclick = async () => { deferred.prompt(); await deferred.userChoice; deferred = null; $('btnInstall').classList.add('d-none'); };
+if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $('iosHint').classList.remove('d-none');
+</script>
+</body>
+</html>

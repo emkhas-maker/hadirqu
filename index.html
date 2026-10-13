@@ -146,12 +146,29 @@ let S = null; // {token, user}
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+let tokErr = '';
+function uuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+function readTok() {
+  try { const v = localStorage.getItem('GTK_DEVICE_TOKEN'); if (v) return v; } catch (e) {}
+  const m = document.cookie.match(/(?:^|; )GTK_DEVICE_TOKEN=([^;]+)/);
+  return m ? m[1] : null;
+}
 function deviceToken() {
-  try {
-    let t = localStorage.getItem('GTK_DEVICE_TOKEN');
-    if (!t) { t = crypto.randomUUID(); localStorage.setItem('GTK_DEVICE_TOKEN', t); }
-    return t;
-  } catch (e) { return null; }
+  let t = readTok();
+  if (t) return t;
+  try { t = uuid(); } catch (e) { tokErr = 'gagal membuat token: ' + e.message; return null; }
+  let ls = 'ok';
+  try { localStorage.setItem('GTK_DEVICE_TOKEN', t); } catch (e) { ls = 'localStorage ditolak (' + e.name + ')'; }
+  document.cookie = 'GTK_DEVICE_TOKEN=' + t + '; max-age=31536000; path=/; SameSite=Lax; Secure';
+  const saved = readTok();
+  if (!saved) tokErr = 'penyimpanan gagal: ' + ls + '; cookie ' + (navigator.cookieEnabled ? 'aktif tapi tidak tersimpan' : 'nonaktif');
+  return saved;
 }
 
 // JSONP
@@ -174,7 +191,7 @@ async function call(action, params) {
 const safe = fn => async (...a) => { try { return await fn(...a); } catch (e) { if (e.message !== 'SESI_HABIS') alert(e.message); } };
 
 // ====== LOGIN / LOGOUT ======
-$('devTok').textContent = deviceToken() || 'tidak tersedia';
+$('devTok').textContent = deviceToken() || ('tidak tersedia - ' + tokErr);
 $('loginForm').addEventListener('submit', safe(async e => {
   e.preventDefault();
   const dev = deviceToken();
@@ -212,14 +229,34 @@ function setStatus(st) {
 }
 const doPresensi = tipe => {
   if (!navigator.geolocation) return alert('Browser tidak mendukung Geolocation.');
-  const b = $('btn' + tipe), label = b.textContent; b.disabled = true; b.textContent = 'Memproses...';
-  navigator.geolocation.getCurrentPosition(safe(async pos => {
+  const b = $('btn' + tipe), label = b.textContent;
+  b.disabled = true; b.textContent = 'Mencari sinyal GPS...';
+  let best = null, done = false, wid, timer;
+  const restore = () => { b.textContent = label; b.disabled = false; };
+  const send = safe(async () => {
+    let ok = false;
     try {
-      const r = await call('presensi', { tipe, lat: pos.coords.latitude, long: pos.coords.longitude, acc: pos.coords.accuracy });
-      alert(r.message); if (r.success) setStatus(r.status);
-    } finally { b.textContent = label; if (S) b.disabled = false; }
-  }), err => { alert('Gagal mendapatkan lokasi GPS: ' + err.message); b.disabled = false; b.textContent = label; },
-  { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+      b.textContent = 'Mengirim...';
+      const r = await call('presensi', { tipe, lat: best.latitude, long: best.longitude, acc: best.accuracy });
+      alert(r.message); ok = r.success; if (ok) setStatus(r.status);
+    } finally { b.textContent = label; if (!ok) b.disabled = false; }
+  });
+  const finish = () => {
+    if (done) return; done = true;
+    navigator.geolocation.clearWatch(wid); clearTimeout(timer);
+    if (!best) { alert('Lokasi GPS belum didapat. Aktifkan lokasi akurasi tinggi dan coba di area terbuka.'); return restore(); }
+    send();
+  };
+  wid = navigator.geolocation.watchPosition(p => {
+    if (!best || p.coords.accuracy < best.accuracy) best = p.coords;
+    b.textContent = 'Akurasi ' + Math.round(best.accuracy) + ' m...';
+    if (best.accuracy <= 30) finish();
+  }, err => {
+    if (best) return;
+    done = true; navigator.geolocation.clearWatch(wid); clearTimeout(timer);
+    alert('Gagal mendapatkan lokasi: ' + err.message); restore();
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  timer = setTimeout(finish, 15000);
 };
 
 // ====== ADMIN ======

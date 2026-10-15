@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tes GPS</title>
+<body style="font:15px sans-serif;padding:14px">
+<h3>Tes GPS</h3>
+<p>Biarkan halaman ini terbuka 1&ndash;2 menit di area terbuka, lalu kirim tangkapan layar.</p>
+<pre id="o" style="white-space:pre-wrap;word-break:break-all"></pre>
+<script>
+const o = document.getElementById('o'), t0 = Date.now(), L = [];
+const log = m => { L.push(m); if (L.length > 25) L.shift(); o.textContent = head + '\n' + L.join('\n'); };
+let head = 'Browser: ' + navigator.userAgent + '\nHTTPS: ' + window.isSecureContext + '\nIzin lokasi: (memeriksa...)';
+const upd = s => { head = head.replace(/Izin lokasi: .*/, 'Izin lokasi: ' + s); o.textContent = head + '\n' + L.join('\n'); };
+if (navigator.permissions) navigator.permissions.query({ name: 'geolocation' }).then(r => { upd(r.state); r.onchange = () => upd(r.state); }).catch(() => upd('tidak bisa diperiksa'));
+else upd('tidak bisa diperiksa');
+if (!navigator.geolocation) log('Browser tidak mendukung geolocation');
+else navigator.geolocation.watchPosition(
+  p => log(((Date.now() - t0) / 1000).toFixed(0) + ' dtk | akurasi ' + Math.round(p.coords.accuracy) + ' m | ' + p.coords.latitude.toFixed(5) + ', ' + p.coords.longitude.toFixed(5)),
+  e => log(((Date.now() - t0) / 1000).toFixed(0) + ' dtk | ERROR ' + e.code + ': ' + e.message + (e.code === 1 ? ' (izin ditolak)' : e.code === 2 ? ' (lokasi tidak tersedia / layanan lokasi mati)' : e.code === 3 ? ' (waktu habis, GPS belum mengunci)' : '')),
+  { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+</script>

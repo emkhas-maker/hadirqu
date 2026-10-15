@@ -1,5 +1,5 @@
 // Naikkan nomor versi setiap kali index.html/logo diubah agar pembaruan langsung sampai
-const CACHE = 'presensi-gtk-v4';
+const CACHE = 'presensi-gtk-v6';
 const SHELL = ['./', 'index.html', 'manifest.json', 'logo.png', 'icon-192.png'];
 
 self.addEventListener('install', e => {

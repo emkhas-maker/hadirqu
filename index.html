@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+window.addEventListener('error',function(e){var t=document.getElementById('devTok');if(t){t.textContent='ERROR: '+e.message+' (baris '+e.lineno+')';t.style.color='#c00';}});
+window.addEventListener('unhandledrejection',function(e){var t=document.getElementById('devTok');if(t&&t.textContent==='-'){t.textContent='ERROR: '+((e.reason&&e.reason.message)||e.reason);t.style.color='#c00';}});
+</script>
 <title>Presensi GTK MI Sultan Agung</title>
 <meta name="theme-color" content="#124028">
 <link rel="manifest" href="manifest.json">
@@ -40,7 +44,7 @@ body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Verdana,sans-serif}
     <button type="submit" id="btnLogin" class="btn btn-green w-100 btn-lg fw-bold">Masuk</button>
   </form>
   <div class="mt-3 pt-3 border-top text-center">
-    <div class="small text-muted mb-1">Token perangkat ini</div><span id="devTok" class="tok">-</span>
+    <div class="small text-muted mb-1">Token perangkat ini <span>· versi 6</span></div><span id="devTok" class="tok">-</span>
     <button id="btnInstall" class="btn btn-outline-success w-100 mt-3 d-none">Instal aplikasi di HP ini</button>
     <div id="iosHint" class="small text-muted mt-3 d-none">iPhone: ketuk Bagikan, lalu Tambah ke Layar Utama.</div>
   </div>
@@ -107,6 +111,7 @@ body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Verdana,sans-serif}
       <div class="col-md-4"><label class="form-label">Latitude</label><input id="cLat" class="form-control" inputmode="decimal"></div>
       <div class="col-md-4"><label class="form-label">Longitude</label><input id="cLon" class="form-control" inputmode="decimal"></div>
       <div class="col-md-4"><label class="form-label">Radius (meter)</label><input id="cRad" type="number" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label">Batas akurasi GPS (meter)</label><input id="cAkr" type="number" class="form-control"></div>
       <div class="col-md-4"><label class="form-label">Jam masuk (HH:mm)</label><input id="cMasuk" class="form-control"></div>
       <div class="col-md-4"><label class="form-label">Batas terlambat (HH:mm)</label><input id="cTelat" class="form-control"></div>
       <div class="col-md-4"><label class="form-label">Jam pulang (HH:mm)</label><input id="cPulang" class="form-control"></div>
@@ -255,8 +260,8 @@ const doPresensi = tipe => {
     if (best) return;
     done = true; navigator.geolocation.clearWatch(wid); clearTimeout(timer);
     alert('Gagal mendapatkan lokasi: ' + err.message); restore();
-  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
-  timer = setTimeout(finish, 15000);
+  }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+  timer = setTimeout(finish, 25000);
 };
 
 // ====== ADMIN ======
@@ -280,7 +285,7 @@ const loadAdmin = safe(async () => {
     || '<tr><td colspan="4" class="text-center text-muted">Belum ada log</td></tr>';
   const s = r.settings;
   $('cLat').value = s['Latitude'] || ''; $('cLon').value = s['Longitude'] || ''; $('cRad').value = s['Radius'] || '';
-  $('cMasuk').value = s['Jam Masuk'] || ''; $('cTelat').value = s['Batas Terlambat'] || ''; $('cPulang').value = s['Jam Pulang'] || '';
+  $('cAkr').value = s['Batas Akurasi'] || '100'; $('cMasuk').value = s['Jam Masuk'] || ''; $('cTelat').value = s['Batas Terlambat'] || ''; $('cPulang').value = s['Jam Pulang'] || '';
   const n = new Date();
   if (!$('mTgl').value) $('mTgl').value = n.toLocaleDateString('sv-SE'); // tanggal lokal, bukan UTC
   if (!$('mJam').value) $('mJam').value = n.toTimeString().slice(0, 5);
@@ -303,7 +308,7 @@ const saveManual = safe(async () => {
   alert(r.message); if (r.success) { $('mKet').value = ''; loadAdmin(); }
 });
 const saveSet = safe(async () => {
-  const r = await call('settings', { lat: $('cLat').value, lon: $('cLon').value, radius: $('cRad').value, masuk: $('cMasuk').value, telat: $('cTelat').value, pulang: $('cPulang').value });
+  const r = await call('settings', { lat: $('cLat').value, lon: $('cLon').value, radius: $('cRad').value, akurasi: $('cAkr').value, masuk: $('cMasuk').value, telat: $('cTelat').value, pulang: $('cPulang').value });
   alert(r.message); if (r.success) loadAdmin();
 });
 const genReport = safe(async () => {
